@@ -16,7 +16,7 @@ Une extension de navigateur qui permet de basculer facilement le mode debug d'Od
 
 1. Clonez ce dépôt :
 ```
-git clone https://github.com/VOTRE_USERNAME/odoo-inspector.git
+git clone https://github.com/David-Besse/odoo-inspector.git
 cd odoo-inspector
 ```
 
