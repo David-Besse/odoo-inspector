@@ -1,0 +1,22 @@
+{
+  "name": "odoo-inspector",
+  "version": "1.0.0",
+  "description": "Odoo Debug Mode Toggle Extension",
+  "main": "index.js",
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "npm-run-all clean build:webpack",
+    "build:webpack": "webpack",
+    "watch": "webpack --watch",
+    "dev": "npm-run-all clean watch"
+  },
+  "author": "David B.",
+  "license": "ISC",
+  "devDependencies": {
+    "copy-webpack-plugin": "^11.0.0",
+    "npm-run-all": "^4.1.5",
+    "rimraf": "^3.0.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  }
+} 
