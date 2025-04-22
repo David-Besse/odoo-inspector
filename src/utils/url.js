@@ -16,12 +16,17 @@ export function handleDebugParameter(url, enable, mode = 'normal') {
     // Déterminer la valeur du paramètre de debug en fonction du mode
     const debugValue = mode === 'assets' ? DebugParameter.VALUE_ASSETS : DebugParameter.VALUE;
     
-    if (version === '18+') {
+    // Gestion commune : ajouter ou supprimer le paramètre de debug dans les paramètres de requête
+    const handleQueryParams = () => {
       if (enable) {
         urlObj.searchParams.set(DebugParameter.NAME, debugValue);
       } else {
         urlObj.searchParams.delete(DebugParameter.NAME);
       }
+    };
+    
+    if (version === '18+') {
+      handleQueryParams();
     } else if (version === 'pre-18') {
       const pathParts = urlObj.pathname.split(OdooPaths.ODOO_PRE_18);
       
@@ -38,6 +43,13 @@ export function handleDebugParameter(url, enable, mode = 'normal') {
         searchParams.delete(DebugParameter.NAME);
         urlObj.search = searchParams.toString() ? '?' + searchParams.toString() : '';
       }
+    } else if (version === 'website') {
+      // Pour les pages website : simplement ajouter/supprimer le paramètre debug dans l'URL
+      handleQueryParams();
+    } else {
+      // Version inconnue : essayer d'ajouter le paramètre dans l'URL comme solution de secours
+      console.warn('Unknown Odoo version, applying debug parameter directly to query string');
+      handleQueryParams();
     }
     
     return urlObj.toString();

@@ -6,9 +6,9 @@ Une extension de navigateur qui permet de basculer facilement le mode debug d'Od
 
 - Activation/désactivation du mode debug Odoo avec un simple interrupteur
 - Support de deux modes debug : standard (`debug=1`) et avec assets (`debug=assets`)
-- Inspecteur HTML pour analyser facilement la structure des pages Odoo
+- Inspection HTML pour analyser facilement la structure des pages Odoo
 - Interface utilisateur intuitive avec gestion d'état intelligent
-- Support des différentes versions d'Odoo (pré-18 et 18+)
+- Support des différentes versions d'Odoo (pré-18, 18+) et détection intelligente des pages Odoo
 - Indication visuelle du mode debug par des icônes différentes
 - Compatible avec tous les navigateurs basés sur Chromium (Chrome, Edge, Brave)
 
@@ -91,7 +91,7 @@ odoo-inspector/
 
 ### Utils
 
-- **url.js** : Utilitaires pour manipuler les URLs et les paramètres de debug
+- **url.js** : Utilitaires pour manipuler les URLs et les paramètres de debug pour les pages Odoo
 
 ### Interface utilisateur
 
@@ -114,11 +114,14 @@ L'extension utilise une architecture modulaire où :
 
 L'architecture du projet est conçue pour être facilement extensible avec de nouvelles fonctionnalités.
 
-## Comportement adaptatif
+## Détection et compatibilité des pages Odoo
 
-L'extension détecte automatiquement si elle est utilisée sur une page Odoo :
-- Sur une page Odoo : toutes les fonctionnalités sont disponibles
-- Sur une page non-Odoo : un message clair indique que l'extension n'est utilisable que sur les sites Odoo
+L'extension est capable de détecter différents types de pages Odoo :
+- Pages avec layout Odoo ET URLs contenant `/web` ou `/odoo` : Mode debug activable
+- Pages avec layout Odoo SANS les chemins `/web` ou `/odoo` : Mode debug désactivé (message d'information affiché)
+- Pages non-Odoo : Extension désactivée
+
+Cette approche assure que le mode debug n'est activé que sur les pages où il fonctionne correctement.
 
 ## Modes de debug
 
@@ -131,10 +134,19 @@ Les deux modes sont mutuellement exclusifs : activer l'un désactive automatique
 ## Flux de fonctionnement
 
 1. L'utilisateur ouvre le popup sur une page web
-2. L'extension détecte automatiquement si c'est une page Odoo
-3. Sur une page Odoo, l'utilisateur peut activer le mode debug standard ou le mode debug avec assets
-4. L'extension modifie l'URL et met à jour l'icône en conséquence
-5. L'inspecteur HTML peut être activé uniquement si l'un des modes debug est activé
+2. L'extension détecte le type de page Odoo et l'URL
+3. Sur une page avec le layout Odoo ET une URL contenant `/web` ou `/odoo`, l'utilisateur peut activer le mode debug
+4. Sur une page avec le layout Odoo SANS les chemins `/web` ou `/odoo`, un message d'information est affiché expliquant que le mode debug n'est pas disponible sur cette page
+5. Sur une page non-Odoo, un message indique que l'extension n'est utilisable que sur les sites Odoo
+
+## Fonctionnalité d'inspection HTML
+
+L'inspecteur HTML permet de visualiser facilement la structure des éléments sur les pages Odoo :
+1. Il faut d'abord activer le mode debug (normal ou assets)
+2. Activer ensuite l'option "Show HTML Structure" dans le popup
+3. Survoler les éléments de la page pour voir leur structure HTML
+
+**Important** : L'inspecteur HTML ne peut être activé que si l'un des modes debug (normal ou assets) est déjà actif. Si vous tentez de l'activer sans avoir préalablement activé un mode debug, l'opération sera annulée.
 
 ## Auteur
 

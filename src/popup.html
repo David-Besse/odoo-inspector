@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <style>
+    /* Variables CSS globales */
     :root {
       --primary-color: #7c59a1;
       --primary-hover: #6c4a63;
@@ -12,6 +13,7 @@
       --animation-duration: 0.2s;
     }
 
+    /* Animations utilisées pour les différents éléments */
     @keyframes quickFadeIn {
       from {
         opacity: 0;
@@ -43,28 +45,25 @@
       }
     }
 
-    @keyframes slideInRight {
-      from {
+    /* Animation pour le logo Sudokeys qui arrive de la gauche */
+    @keyframes slideFromLeft {
+      0% {
         opacity: 0;
-        transform: translateX(-10px);
+        transform: translateX(-20px);
       }
-      to {
+      
+      80% {
+        opacity: 1;
+        transform: translateX(2px);
+      }
+      
+      100% {
         opacity: 1;
         transform: translateX(0);
       }
     }
 
-    @keyframes fadeInScale {
-      from {
-        opacity: 0;
-        transform: scale(0.9);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1);
-      }
-    }
-
+    /* Style du corps de la popup */
     body {
       width: 220px;
       padding: 12px;
@@ -76,6 +75,7 @@
       margin: 0;
     }
 
+    /* En-tête de la popup */
     .header {
       display: flex;
       flex-direction: column;
@@ -94,55 +94,53 @@
       margin-bottom: 8px;
     }
 
+    /* Logo principal Odoo Inspector */
     .logo {
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       margin-bottom: 6px;
       animation: quickScaleIn calc(var(--animation-duration) * 1.1) cubic-bezier(0.19, 1, 0.22, 1) forwards;
     }
 
+    /* Titre de l'extension */
     .title {
-      font-size: 24px;
+      font-size: 26.4px;
       font-weight: 600;
       color: var(--primary-color);
       opacity: 0;
       animation: quickFadeIn var(--animation-duration) cubic-bezier(0.19, 1, 0.22, 1) 0.05s forwards;
     }
 
+    /* Bloc "Powered by" */
     .powered-by {
-      font-size: 10px;
+      font-size: 11px;
       color: #666;
       margin-top: 3px;
       display: flex;
       align-items: center;
       justify-content: center;
-      opacity: 0;
-      animation: slideInRight 0.4s cubic-bezier(0.25, 1, 0.5, 1) 0.1s forwards;
       width: 100%;
+      padding-left: 8px; /* Léger décalage pour un meilleur centrage visuel */
     }
 
-    .powered-by-text {
-      opacity: 0;
-      animation: fadeInScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s forwards;
-    }
-
+    /* Logo Sudokeys */
     .sudokeys-logo {
       display: inline-block;
       margin-left: 5px;
-      height: 14px;
-      opacity: 0;
-      animation: fadeInScale 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s forwards;
+      height: 15.4px;
     }
 
     .sudokeys-logo img {
-      height: 14px;
+      height: 15.4px;
       width: auto;
-      image-rendering: crisp-edges;
-      image-rendering: -webkit-optimize-contrast;
+      image-rendering: auto;
       transform: translateZ(0);
-      filter: contrast(1.05);
+      -webkit-font-smoothing: antialiased;
+      animation: slideFromLeft 0.8s cubic-bezier(0.25, 1, 0.5, 1) 0.2s forwards;
+      opacity: 0; /* Initialement invisible, devient visible avec l'animation */
     }
 
+    /* Éléments de menu */
     .menu-item {
       display: flex;
       align-items: center;
@@ -180,7 +178,7 @@
       font-weight: 500;
     }
 
-    /* Switch styles */
+    /* Styles des interrupteurs (switches) */
     .switch {
       position: relative;
       display: inline-block;
@@ -227,6 +225,7 @@
       transform: translateX(14px);
     }
 
+    /* Séparateur visuel */
     .separator {
       height: 1px;
       background-color: var(--border-color);
@@ -235,6 +234,7 @@
       animation: instantAppear 0.15s cubic-bezier(0.19, 1, 0.22, 1) 0.14s forwards;
     }
 
+    /* Section des outils de debug */
     .debug-tools {
       padding: 10px;
       border-radius: 6px;
@@ -278,6 +278,7 @@
       margin-bottom: 0;
     }
 
+    /* Messages d'information */
     .disabled-info {
       display: none;
       color: #666;
@@ -295,21 +296,50 @@
       border: 1px solid rgba(0,0,0,0.03);
     }
 
-    .disabled .disabled-info {
+    .website-info {
+      display: none;
+      color: #555;
+      font-style: normal;
+      text-align: center;
+      margin: 15px auto;
+      font-size: 0.9em;
+      animation: quickFadeIn 0.3s ease forwards;
+      padding: 10px 15px;
+      background-color: rgba(255, 213, 79, 0.15);
+      border-radius: 6px;
+      max-width: 180px;
+      line-height: 1.5;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      border: 1px solid rgba(234, 181, 22, 0.1);
+    }
+
+    .website-info .icon {
+      margin-right: 5px;
+      font-size: 0.9em;
+      vertical-align: middle;
+    }
+
+    /* Styles pour les états désactivés */
+    .disabled .disabled-info,
+    .website .website-info {
       display: block;
     }
 
-    .disabled .switch {
+    .disabled .switch,
+    .website .switch {
       opacity: 0.5;
       cursor: not-allowed;
     }
 
-    .disabled input {
+    .disabled input,
+    .website input {
       pointer-events: none;
     }
 
     .disabled #debug-container, 
-    .disabled #debug-assets-container {
+    .disabled #debug-assets-container,
+    .website #debug-container, 
+    .website #debug-assets-container {
       background-color: rgba(0, 0, 0, 0.05);
       border-radius: 4px;
       padding: 10px;
@@ -318,34 +348,59 @@
     .disabled #debug-container .menu-item-content,
     .disabled #debug-container .switch,
     .disabled #debug-assets-container .menu-item-content,
-    .disabled #debug-assets-container .switch {
+    .disabled #debug-assets-container .switch,
+    .website #debug-container .menu-item-content,
+    .website #debug-container .switch,
+    .website #debug-assets-container .menu-item-content,
+    .website #debug-assets-container .switch {
       display: none !important;
     }
 
     .disabled .debug-tools,
-    .disabled .separator {
+    .disabled .separator,
+    .website .debug-tools,
+    .website .separator {
       display: none !important;
     }
 
-    .disabled .menu-item {
+    .disabled .menu-item,
+    .website .menu-item {
       margin-bottom: 0;
+    }
+
+    /* Centre le message quand les conteneurs de debug sont cachés */
+    .website .website-info {
+      margin-top: 30px;
     }
   </style>
 </head>
 <body>
+  <!-- En-tête avec logo et titre -->
   <div class="header">
     <div class="header-top">
       <img src="/img/icons/icon48.png" class="logo" alt="Odoo Inspector">
       <span class="title">Odoo <span style="color: #4bb04f;">Inspector</span></span>
     </div>
+    <!-- Logo Sudokeys avec animation -->
     <div class="powered-by">
       <span class="powered-by-text">Powered by</span>
       <span class="sudokeys-logo">
-        <img src="/img/Sudokeys.webp" alt="Sudokeys" height="14">
+        <img src="/img/Sudokeys.webp?v=3" alt="Sudokeys" height="15" style="image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;">
       </span>
     </div>
   </div>
   
+  <!-- Message d'information pour les sites non-Odoo -->
+  <div class="disabled-info" style="display: none;">
+    Cette extension n'est utilisable que sur les sites Odoo
+  </div>
+  
+  <!-- Message d'information pour les sites Odoo non-backend -->
+  <div class="website-info" style="display: none;">
+    <span class="icon">ℹ️</span> Le mode debug ne peut être activé que sur les pages du backoffice.
+  </div>
+  
+  <!-- Option Debug Mode normal -->
   <div class="menu-item" id="debug-container">
     <div class="menu-item-content">
       <span class="icon">🔧</span>
@@ -355,11 +410,9 @@
       <input type="checkbox" id="debug-toggle">
       <span class="slider"></span>
     </label>
-    <div class="disabled-info" style="display: none;">
-      Cette extension n'est utilisable que sur les sites Odoo
-    </div>
   </div>
   
+  <!-- Option Debug Assets -->
   <div class="menu-item" id="debug-assets-container">
     <div class="menu-item-content">
       <span class="icon">🛠️</span>
@@ -371,8 +424,10 @@
     </label>
   </div>
   
+  <!-- Séparateur visuel -->
   <div class="separator"></div>
   
+  <!-- Outils additionnels -->
   <div class="debug-tools">
     <div class="label">Tooltip Options</div>
     <div class="tooltip-options">
@@ -386,6 +441,7 @@
     </div>
   </div>
   
+  <!-- Chargement du script principal -->
   <script type="module" src="popup.js"></script>
 </body>
 </html> 
