@@ -4,19 +4,33 @@
   "description": "Odoo Debug Mode Toggle Extension",
   "main": "index.js",
   "scripts": {
-    "clean": "rimraf dist",
+    "clean": "rm -rf dist",
     "build": "npm-run-all clean build:webpack",
     "build:webpack": "webpack",
     "watch": "webpack --watch",
-    "dev": "npm-run-all clean watch"
+    "dev": "npm-run-all clean watch",
+    "package": "bash scripts/package-zip.sh",
+    "package:zip-only": "node scripts/package-zip.js",
+    "generate:crx": "bash scripts/generate-crx.sh"
   },
   "author": "David B.",
-  "license": "ISC",
+  "license": "MIT",
   "devDependencies": {
-    "copy-webpack-plugin": "^11.0.0",
+    "archiver": "^7.0.1",
+    "copy-webpack-plugin": "^13.0.0",
+    "crx": "^5.0.1",
     "npm-run-all": "^4.1.5",
-    "rimraf": "^3.0.2",
-    "webpack": "^5.89.0",
-    "webpack-cli": "^5.1.4"
+    "rimraf": "^5.0.5",
+    "webpack": "^5.99.6",
+    "webpack-cli": "^6.0.1"
+  },
+  "scripts-info": {
+    "clean": "Nettoie le dossier de distribution",
+    "build": "Construit l'extension en mode production",
+    "watch": "Surveille les fichiers et reconstruit automatiquement",
+    "dev": "Lance le mode développement avec surveillance des fichiers",
+    "package": "Construit l'extension et l'empaquète au format ZIP (pour le Chrome Web Store)",
+    "package:zip-only": "Empaquète uniquement l'extension au format ZIP sans reconstruire",
+    "generate:crx": "Génère un fichier CRX signé (pour distribution manuelle)"
   }
-} 
+}

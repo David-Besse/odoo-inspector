@@ -37,3 +37,6 @@ Thumbs.db
 # Fichiers de package
 *.tgz
 *.zip 
+
+# Fichiers de clé privée
+private-key.pem

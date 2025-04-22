@@ -6,7 +6,7 @@ Une extension de navigateur qui permet de basculer facilement le mode debug d'Od
 
 - Activation/désactivation du mode debug Odoo avec un simple interrupteur
 - Support de deux modes debug : standard (`debug=1`) et avec assets (`debug=assets`)
-- Inspection HTML pour analyser facilement la structure des pages Odoo
+- Inspecteur HTML pour analyser facilement la structure des pages Odoo
 - Interface utilisateur intuitive avec gestion d'état intelligent
 - Support des différentes versions d'Odoo (pré-18, 18+) et détection intelligente des pages Odoo
 - Indication visuelle du mode debug par des icônes différentes
@@ -35,20 +35,71 @@ npm run build
 4. Importez l'extension dans votre navigateur :
    - Ouvrez Chrome/Brave/Edge et accédez à `chrome://extensions/` ou `brave://extensions/`
    - Activez le "Mode développeur"
-   - Cliquez sur "Charger l'extension non empaquetée"
-   - **Important**: Sélectionnez uniquement le dossier `dist` généré par la build
+   - **Méthode 1 (recommandée)** : Exécutez `npm run package` puis glissez-déposez le fichier ZIP généré directement sur la page des extensions
+   - **Méthode 2 (alternative)** : Cliquez sur "Charger l'extension non empaquetée" et sélectionnez le dossier `dist` généré par la build
 
 ## Développement
 
 - `npm run build` : Nettoie le dossier dist et construit l'extension
 - `npm run dev` : Nettoie le dossier dist et surveille les changements pour reconstruire automatiquement
 - `npm run clean` : Nettoie le dossier dist
+- `npm run package` : Construit et empaquète l'extension au format ZIP (pour le Chrome Web Store)
+- `npm run package:zip-only` : Empaquète uniquement l'extension au format ZIP sans reconstruire
+- `npm run generate:crx` : Génère un fichier CRX signé (pour distribution manuelle)
+
+## Packaging de l'extension
+
+Plusieurs options sont disponibles pour empaqueter l'extension :
+
+### 1. Fichier ZIP (recommandé pour la distribution et le Chrome Web Store)
+
+```bash
+npm run package
+```
+
+Cette commande génère un fichier ZIP dans le dossier `packages/` qui peut être :
+- Glissé-déposé directement sur la page `chrome://extensions/` (méthode la plus simple)
+- Décompressé et chargé en mode développeur
+- Téléchargé sur le Chrome Web Store pour publication
+
+### 2. Fichier CRX (pour distribution manuelle)
+
+```bash
+npm run generate:crx
+```
+
+Cette commande génère :
+- Un fichier .crx dans le dossier `packages/`
+- Un fichier .zip dans le dossier `packages/`
+- Une clé privée `private-key.pem` à la racine du projet (à sauvegarder !)
+
+**Note** : Depuis Chrome 75, l'installation directe des fichiers CRX est restreinte. Le fichier CRX peut être utilisé pour :
+- Distribution via des politiques d'entreprise
+- Installation dans des navigateurs basés sur Chromium qui acceptent encore les CRX
+- Déploiement via un serveur web avec les en-têtes Content-Type appropriés
+
+## Compatibilité Node.js
+
+Cette extension est compatible avec Node.js v18+ et a été testée avec :
+- Node.js v18.20.8
+- Node.js v22.14.0 (LTS)
+
+Pour mettre à jour Node.js à la dernière version LTS, utilisez NVM :
+```bash
+nvm install --lts
+```
 
 ## Structure du projet
 
 ```
 odoo-inspector/
 ├── dist/               # Dossier de build (généré lors de la construction)
+├── packages/           # Contient les fichiers ZIP et CRX pour la distribution
+├── scripts/            # Scripts d'empaquetage et d'utilitaires
+│   ├── generate-crx.js       # Script pour générer un fichier CRX
+│   ├── generate-crx.sh       # Script shell pour la génération du CRX
+│   ├── package-zip.js        # Script pour créer un ZIP de l'extension
+│   └── package-zip.sh        # Script shell pour construire et empaqueter en ZIP
 ├── src/                # Code source
 │   ├── core/           # Fonctionnalités de base et utilitaires
 │   │   ├── browser.js          # Abstraction de l'API du navigateur
@@ -101,6 +152,11 @@ odoo-inspector/
 ### Service worker
 
 - **service-worker.js** : Gère l'état global et les événements du navigateur, stocke l'état du debug et son mode
+
+### Scripts de packaging
+
+- **generate-crx.js** : Génère un fichier CRX signé à partir des fichiers de l'extension
+- **package-zip.js** : Crée un fichier ZIP de l'extension pour le déploiement
 
 ## Architecture
 
