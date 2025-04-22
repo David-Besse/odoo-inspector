@@ -308,14 +308,17 @@
       pointer-events: none;
     }
 
-    .disabled #debug-container {
+    .disabled #debug-container, 
+    .disabled #debug-assets-container {
       background-color: rgba(0, 0, 0, 0.05);
       border-radius: 4px;
       padding: 10px;
     }
 
     .disabled #debug-container .menu-item-content,
-    .disabled #debug-container .switch {
+    .disabled #debug-container .switch,
+    .disabled #debug-assets-container .menu-item-content,
+    .disabled #debug-assets-container .switch {
       display: none !important;
     }
 
@@ -355,6 +358,17 @@
     <div class="disabled-info" style="display: none;">
       Cette extension n'est utilisable que sur les sites Odoo
     </div>
+  </div>
+  
+  <div class="menu-item" id="debug-assets-container">
+    <div class="menu-item-content">
+      <span class="icon">🛠️</span>
+      <span class="label">Debug Assets</span>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="debug-assets-toggle">
+      <span class="slider"></span>
+    </label>
   </div>
   
   <div class="separator"></div>

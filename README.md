@@ -5,6 +5,7 @@ Une extension de navigateur qui permet de basculer facilement le mode debug d'Od
 ## Fonctionnalités
 
 - Activation/désactivation du mode debug Odoo avec un simple interrupteur
+- Support de deux modes debug : standard (`debug=1`) et avec assets (`debug=assets`)
 - Inspecteur HTML pour analyser facilement la structure des pages Odoo
 - Interface utilisateur intuitive avec gestion d'état intelligent
 - Support des différentes versions d'Odoo (pré-18 et 18+)
@@ -77,7 +78,7 @@ odoo-inspector/
 ### Core
 
 - **browser.js** : Abstraction des APIs du navigateur pour assurer la compatibilité cross-browser
-- **constants.js** : Définition des constantes utilisées dans tout le projet (chemins Odoo, paramètres)
+- **constants.js** : Définition des constantes utilisées dans tout le projet (chemins Odoo, paramètres de debug)
 - **icon-utils.js** : Utilitaires pour gérer les différentes tailles et états des icônes
 - **odoo.js** : Fonctions de détection de version d'Odoo et validation des URLs Odoo
 
@@ -95,11 +96,11 @@ odoo-inspector/
 ### Interface utilisateur
 
 - **popup.html** : Structure et styles de l'interface utilisateur du popup
-- **popup.js** : Logique d'interaction du popup, détection du contexte Odoo
+- **popup.js** : Logique d'interaction du popup, détection du contexte Odoo et gestion des modes de debug
 
 ### Service worker
 
-- **service-worker.js** : Gère l'état global et les événements du navigateur, stocke l'état du debug
+- **service-worker.js** : Gère l'état global et les événements du navigateur, stocke l'état du debug et son mode
 
 ## Architecture
 
@@ -119,13 +120,21 @@ L'extension détecte automatiquement si elle est utilisée sur une page Odoo :
 - Sur une page Odoo : toutes les fonctionnalités sont disponibles
 - Sur une page non-Odoo : un message clair indique que l'extension n'est utilisable que sur les sites Odoo
 
+## Modes de debug
+
+L'extension prend en charge deux modes de debug différents :
+1. **Debug standard** (`debug=1`) : Active les fonctionnalités de développement d'Odoo
+2. **Debug avec assets** (`debug=assets`) : Active les fonctionnalités de développement et charge les assets (JS/CSS) de manière non-minifiée, utile pour le débogage frontend
+
+Les deux modes sont mutuellement exclusifs : activer l'un désactive automatiquement l'autre.
+
 ## Flux de fonctionnement
 
 1. L'utilisateur ouvre le popup sur une page web
 2. L'extension détecte automatiquement si c'est une page Odoo
-3. Sur une page Odoo, l'utilisateur peut activer/désactiver le mode debug
+3. Sur une page Odoo, l'utilisateur peut activer le mode debug standard ou le mode debug avec assets
 4. L'extension modifie l'URL et met à jour l'icône en conséquence
-5. L'inspecteur HTML peut être activé uniquement si le mode debug est activé
+5. L'inspecteur HTML peut être activé uniquement si l'un des modes debug est activé
 
 ## Auteur
 

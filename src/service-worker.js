@@ -21,7 +21,8 @@ if (chromeVersion && parseInt(chromeVersion) < 88) {
 }
 
 // Stockage local pour le service worker
-const debugStates = new Map();
+// Stocke pour chaque onglet: {enabled: boolean, mode: string ('normal' ou 'assets')}
+const debugStates = new Map(); // {tabId: {enabled: boolean, mode: string}}
 
 /**
  * Met à jour l'icône directement depuis le service worker
@@ -49,20 +50,38 @@ browserAPI.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   }
 
   try {
-    // Vérifier d'abord si nous avons déjà un état stocké
-    let isDebugEnabled = debugStates.has(tabId) 
-      ? debugStates.get(tabId) 
-      : tab.url.includes('debug=1');
+    // Vérifier l'état du debug et le mode d'après l'URL
+    let isDebugEnabled = false;
+    let debugMode = 'normal';
+    
+    // Détection des différents modes debug dans l'URL
+    if (tab.url.includes('debug=assets')) {
+      isDebugEnabled = true;
+      debugMode = 'assets';
+    } else if (tab.url.includes('debug=1')) {
+      isDebugEnabled = true;
+      debugMode = 'normal';
+    }
+    
+    // Vérifier si nous avons déjà un état stocké
+    if (debugStates.has(tabId)) {
+      const storedState = debugStates.get(tabId);
+      // Si l'URL ne contient pas de paramètre debug, utiliser l'état stocké
+      if (!tab.url.includes('debug=')) {
+        isDebugEnabled = storedState.enabled;
+        debugMode = storedState.mode;
+      }
+    }
     
     // Mettre à jour le stockage local
-    debugStates.set(tabId, isDebugEnabled);
+    debugStates.set(tabId, { enabled: isDebugEnabled, mode: debugMode });
     
     // Mettre à jour l'icône directement
     updateIconDirectly(isDebugEnabled);
   } catch (error) {
     console.error(`[ServiceWorker] Error handling tab update for ${tabId}:`, error.message);
     // En cas d'erreur, on considère que le debug est désactivé
-    debugStates.set(tabId, false);
+    debugStates.set(tabId, { enabled: false, mode: 'normal' });
   }
 });
 
@@ -76,14 +95,17 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     switch (message.type) {
       case 'SET_DEBUG_STATE': {
-        const { tabId, state } = message;
+        const { tabId, state, mode = 'normal' } = message;
         if (tabId === undefined) {
           sendResponse({ error: "Missing tabId parameter" });
           return true;
         }
         
         // Mettre à jour l'état dans notre Map
-        debugStates.set(tabId, !!state); // Conversion en booléen
+        debugStates.set(tabId, { 
+          enabled: !!state, 
+          mode: mode || 'normal' 
+        });
         
         // Mettre à jour l'icône directement
         updateIconDirectly(!!state);
@@ -100,8 +122,14 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
         
         // Récupérer l'état stocké dans notre Map
-        const isDebugEnabled = debugStates.has(tabId) ? debugStates.get(tabId) : false;
-        sendResponse({ state: isDebugEnabled });
+        const debugState = debugStates.has(tabId) 
+          ? debugStates.get(tabId) 
+          : { enabled: false, mode: 'normal' };
+          
+        sendResponse({ 
+          state: debugState.enabled,
+          mode: debugState.mode 
+        });
         break;
       }
       
