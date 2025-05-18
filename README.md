@@ -172,12 +172,58 @@ L'architecture du projet est conçue pour être facilement extensible avec de no
 
 ## Détection et compatibilité des pages Odoo
 
-L'extension est capable de détecter différents types de pages Odoo :
-- Pages avec layout Odoo ET URLs contenant `/web` ou `/odoo` : Mode debug activable
-- Pages avec layout Odoo SANS les chemins `/web` ou `/odoo` : Mode debug désactivé (message d'information affiché)
-- Pages non-Odoo : Extension désactivée
+L'extension utilise plusieurs critères pour détecter les pages Odoo, fonctionnant de manière indépendante :
 
-Cette approche assure que le mode debug n'est activé que sur les pages où il fonctionne correctement.
+1. **Critère principal** : Présence du script avec l'identifiant `web.layout.odooscript` dans la page
+   - Ce script est le marqueur officiel des pages Odoo
+
+2. **Critères secondaires** : Utilisés en complément pour une détection plus robuste
+   - Présence de texte "Powered by Odoo" dans la page
+   - Présence d'éléments DOM spécifiques à Odoo
+   - Patterns d'URL typiques des instances Odoo (incluant les URLs runbot)
+
+3. **Critères spécifiques pour le Point of Sale** : Une combinaison d'indicateurs
+   - Présence de la classe `pos` sur la balise `<body>`
+   - URL contenant des patterns spécifiques au POS (comme `/pos/ui`)
+   - Éléments DOM caractéristiques de l'interface POS
+
+### Comportement selon le type de page
+
+L'extension adapte son comportement en fonction du type de page détecté :
+
+- **Pages Backend** (avec URL contenant `/web` ou `/odoo`) :
+  - Activation automatique du mode debug si non déjà défini
+  - Contrôles entièrement disponibles
+
+- **Pages Point of Sale** (détection via critères POS spécifiques) :
+  - Activation automatique du mode debug si non déjà défini
+  - Contrôles entièrement disponibles
+
+- **Pages Website** (script Odoo détecté mais pas d'URL backend/POS) :
+  - **PAS** d'activation automatique du mode debug
+  - Contrôles disponibles pour activation manuelle
+  - Mode idéal pour prévisualiser le site sans debug
+
+### Gestion des paramètres debug dans l'URL
+
+L'extension respecte strictement les paramètres debug présents dans l'URL :
+
+- `debug=1` : Active le mode debug standard
+- `debug=assets` : Active le mode debug avec chargement des assets non-minifiés
+- `debug=0` : Désactive explicitement le mode debug
+
+Si aucun paramètre n'est spécifié, l'extension conserve l'état précédent pour assurer une expérience utilisateur cohérente lors de la navigation.
+
+### Gestion des changements d'URL
+
+L'extension surveille intelligemment les changements d'URL au sein d'Odoo et maintient l'état du mode debug entre les navigations, sauf si explicitement modifié via l'URL.
+
+### Gestion de l'état entre onglets
+
+L'extension gère séparément l'état du mode debug pour chaque onglet :
+- Le changement du mode debug dans un onglet n'affecte pas les autres onglets
+- L'icône de l'extension affiche correctement l'état de debug spécifique à l'onglet actif
+- Lors du changement d'onglet, l'état de l'icône est automatiquement mis à jour pour refléter l'état du nouvel onglet actif
 
 ## Modes de debug
 
@@ -190,10 +236,22 @@ Les deux modes sont mutuellement exclusifs : activer l'un désactive automatique
 ## Flux de fonctionnement
 
 1. L'utilisateur ouvre le popup sur une page web
-2. L'extension détecte le type de page Odoo et l'URL
-3. Sur une page avec le layout Odoo ET une URL contenant `/web` ou `/odoo`, l'utilisateur peut activer le mode debug
-4. Sur une page avec le layout Odoo SANS les chemins `/web` ou `/odoo`, un message d'information est affiché expliquant que le mode debug n'est pas disponible sur cette page
-5. Sur une page non-Odoo, un message indique que l'extension n'est utilisable que sur les sites Odoo
+
+2. L'extension analyse la page avec deux méthodes parallèles :
+   - **Méthode principale** : Recherche du script Odoo spécifique (`script#web.layout.odooscript`)
+   - **Méthode alternative** : Pour le Point of Sale, vérification de la classe `pos` sur le body ET `/pos` dans l'URL
+
+3. Si l'un des critères est satisfait, l'extension adapte son comportement selon le type de page :
+   - **Pages Backend** (`/web` ou `/odoo`) : Activation automatique du mode debug (si non défini)
+   - **Pages Point of Sale** : Activation automatique du mode debug (si non défini)
+   - **Pages Website** : Contrôles disponibles mais PAS d'activation automatique
+
+4. L'extension respecte strictement les paramètres debug présents dans l'URL :
+   - `debug=1` ou `debug=assets` : Active le mode correspondant
+   - `debug=0` : Désactive explicitement le mode debug
+   - Sans paramètre : Conserve l'état précédent lors des changements de page
+
+5. Les changements d'URL sont surveillés en temps réel pour maintenir la cohérence de l'expérience utilisateur, tout en respectant les choix explicites de l'utilisateur.
 
 ## Fonctionnalité d'inspection HTML
 

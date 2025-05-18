@@ -7,6 +7,7 @@ import { browserAPI } from "../core/browser.js";
 import { IconManager } from "./icon-manager.js";
 import { TooltipManager } from "./tooltip-manager.js";
 import { HTMLInspector } from "./html-inspector.js";
+import { handleDebugParameter } from "../utils/debug-utils.js";
 
 /**
  * Gestionnaire d'état
@@ -18,16 +19,30 @@ export const StateManager = {
    * @param {number} tabId - Identifiant de l'onglet
    * @param {boolean} isDebugEnabled - Indique si le mode debug est activé
    * @param {string} debugMode - Mode de debug ('normal' ou 'assets')
-   * @returns {Promise<void>}
+   * @returns {Promise<boolean>} - Indique si l'opération a réussi
    */
   async handleDebugState(tabId, isDebugEnabled, debugMode = 'normal') {
     if (!tabId) {
       console.error("[StateManager] Invalid tabId provided");
-      return;
+      return false;
     }
 
     try {
-      // Mettre à jour l'icône
+      console.log(`[StateManager] handleDebugState - tabId: ${tabId}, state: ${isDebugEnabled}, mode: ${debugMode}`);
+      
+      // Vérifier si l'onglet existe toujours
+      try {
+        const tab = await browserAPI.tabs.get(tabId);
+        if (!tab) {
+          console.error(`[StateManager] Tab ${tabId} does not exist`);
+          return false;
+        }
+      } catch (tabError) {
+        console.error(`[StateManager] Error getting tab ${tabId}:`, tabError.message);
+        return false;
+      }
+      
+      // Mettre à jour l'icône spécifiquement pour cet onglet
       await IconManager.updateIcon(tabId, isDebugEnabled);
       
       // Gérer les tooltips
@@ -39,10 +54,14 @@ export const StateManager = {
       }
 
       // Synchroniser l'état avec le service worker
-      await this.syncWithServiceWorker(tabId, isDebugEnabled, debugMode);
+      const syncResult = await this.syncWithServiceWorker(tabId, isDebugEnabled, debugMode);
+      console.log(`[StateManager] Sync result for tab ${tabId}: ${syncResult}`);
+      
+      return true;
     } catch (error) {
       // Erreur non fatale, on continue
       console.error(`[StateManager] Error handling debug state for tab ${tabId}:`, error.message);
+      return false;
     }
   },
 
@@ -55,13 +74,16 @@ export const StateManager = {
    */
   async syncWithServiceWorker(tabId, state, mode = 'normal') {
     try {
+      console.log(`[StateManager] syncWithServiceWorker - tabId: ${tabId}, state: ${state}, mode: ${mode}`);
+      
       const response = await browserAPI.runtime.sendMessage({
         type: 'SET_DEBUG_STATE',
         tabId,
         state,
         mode
       });
-
+      
+      console.log(`[StateManager] Service worker response:`, response);
       return response && !response.error;
     } catch (error) {
       console.error(`[StateManager] Error syncing with service worker:`, error.message);
@@ -76,16 +98,19 @@ export const StateManager = {
    */
   async getDebugState(tabId) {
     try {
+      console.log(`[StateManager] getDebugState - tabId: ${tabId}`);
+      
       const response = await browserAPI.runtime.sendMessage({
         type: 'GET_DEBUG_STATE',
         tabId
       });
-
+      
       if (!response || response.error) {
         console.error(`[StateManager] Error getting debug state:`, response?.error || 'No response');
         return { enabled: false, mode: 'normal' };
       }
-
+      
+      console.log(`[StateManager] getDebugState result:`, response);
       return {
         enabled: !!response.state,
         mode: response.mode || 'normal'

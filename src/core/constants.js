@@ -9,6 +9,7 @@
 export const OdooPaths = {
   ODOO_18: "/odoo",
   ODOO_PRE_18: "/web",
+  POS: "/pos"
 };
 
 /**
