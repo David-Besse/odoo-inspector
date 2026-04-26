@@ -4,7 +4,7 @@
   "description": "Odoo Debug Mode Toggle Extension",
   "main": "index.js",
   "scripts": {
-    "clean": "rm -rf dist",
+    "clean": "rimraf dist",
     "build": "npm-run-all clean build:webpack",
     "build:webpack": "webpack",
     "watch": "webpack --watch",
@@ -17,7 +17,7 @@
   "license": "MIT",
   "devDependencies": {
     "archiver": "^7.0.1",
-    "copy-webpack-plugin": "^13.0.0",
+    "copy-webpack-plugin": "^14.0.0",
     "crx": "^5.0.1",
     "npm-run-all": "^4.1.5",
     "rimraf": "^5.0.5",
