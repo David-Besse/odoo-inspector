@@ -210,77 +210,64 @@ export function isPosInterface() {
 }
 
 /**
- * Détecte si c'est une page Odoo en examinant le DOM
- * @returns {Object} - Objet contenant des indicateurs sur la page Odoo
+ * Détecte si c'est une page Odoo en examinant le DOM.
+ * Fonction self-contained : injectée isolément via scripting.executeScript,
+ * elle ne peut pas appeler d'autres fonctions du module.
+ * @returns {Object} - Indicateurs sur la page Odoo et l'état debug courant
  */
 export function detectOdooPageDom() {
   try {
-    // Indicateurs de détection Odoo
-    let isOdoo = false;
-    let interfaceType = OdooInterface.UNKNOWN;
-    let isPOS = false;
-    
-    // 1. Chercher la balise script spécifique à Odoo
-    const hasOdooScript = !!document.querySelector('script#web\\.layout\\.odooscript');
-    
-    // 2. Vérifier si le body a la classe o_web_client (interface backend/website)
+    // Signal 1 : window.odoo global = JS Odoo chargé sur cette page
+    const odooGlobal = typeof window.odoo !== 'undefined' ? window.odoo : null;
+    const hasOdooGlobal = !!odooGlobal;
+
+    // Signal 2 : o_web_client = WebClient Odoo monté
+    // Présent dans le backend ET sur le site web consulté via la barre d'admin
+    // Absent sur le site web public pur → debug impossible dans ce cas
     const hasWebClientClass = document.body.classList.contains('o_web_client');
-    
-    // 3. Vérifier s'il y a des scripts qui contiennent 'odoo' dans leur src
-    const scripts = Array.from(document.querySelectorAll('script[src]'));
-    const hasOdooInScripts = scripts.some(script => 
-      script.src.toLowerCase().includes('/odoo') || 
-      script.src.toLowerCase().includes('/web/content/') ||
-      script.src.toLowerCase().includes('odoo.js')
+
+    // Signal 3 : état debug lu directement depuis Odoo (source autoritaire)
+    const debugValue = (odooGlobal && odooGlobal.debug) ? String(odooGlobal.debug) : '';
+    const isDebugActive = !!debugValue;
+    const debugMode = debugValue === 'assets' ? 'assets' : 'normal';
+
+    // Signal 4 : détection POS (self-contained)
+    const hasPosClass = document.body.classList.contains('pos');
+    const urlLower = window.location.href.toLowerCase();
+    const hasPosInUrl = urlLower.includes('/pos/') || urlLower.includes('/pos/ui');
+    const hasPosElement = !!(
+      document.querySelector('.pos-content') ||
+      document.querySelector('#pos_root') ||
+      document.querySelector('.pos_root')
     );
-    
-    // 4. Vérifier si le footer ou tout autre élément contient "Powered by Odoo"
-    const pageContent = document.body.textContent || '';
-    const hasPoweredByOdoo = pageContent.includes('Powered by Odoo');
-    
-    // 5. Vérifier s'il y a des éléments avec des classes commençant par 'o_'
-    const hasOdooElements = !!document.querySelector('[class^="o_"]');
-    
-    // 6. Vérifier si c'est une interface Point of Sale
-    isPOS = isPosInterface();
-    
-    // 7. Vérifier l'URL pour des motifs typiques d'Odoo
-    const currentUrl = window.location.href.toLowerCase();
-    const hasOdooInUrl = currentUrl.includes('odoo.com') || 
-                         currentUrl.includes('/odoo') || 
-                         currentUrl.includes('/web') ||
-                         currentUrl.includes('runbot');
-    
-    // Combiner les vérifications pour déterminer si c'est une page Odoo
-    isOdoo = hasOdooScript || 
-             hasWebClientClass || 
-             hasOdooInScripts || 
-             hasPoweredByOdoo || 
-             hasOdooElements || 
-             isPOS ||
-             hasOdooInUrl;
-    
-    // Déterminer le type d'interface
-    if (hasWebClientClass) {
-      interfaceType = OdooInterface.BACKEND;
-    } else if (isPOS) {
-      interfaceType = OdooInterface.POS;
+    const isPOS = hasPosClass || hasPosInUrl || hasPosElement;
+
+    // Est-ce une page Odoo ?
+    const isOdoo = hasOdooGlobal || hasWebClientClass || isPOS;
+
+    // Type d'interface
+    let interfaceType;
+    if (isPOS) {
+      interfaceType = 'pos';
+    } else if (hasWebClientClass) {
+      // WebClient monté = backend OU site web avec barre admin → debug activable
+      interfaceType = 'backend';
     } else if (isOdoo) {
-      // Si on a identifié Odoo mais pas un backend spécifique, considérer comme website
-      interfaceType = OdooInterface.WEBSITE;
+      // JS Odoo présent mais pas de WebClient = site public seul → debug impossible
+      interfaceType = 'website';
+    } else {
+      interfaceType = 'unknown';
     }
-    
-    return {
-      isOdoo,
-      interfaceType,
-      isPOS
-    };
+
+    return { isOdoo, interfaceType, isPOS, debugValue, isDebugActive, debugMode };
   } catch (error) {
-    console.error("Error detecting Odoo page DOM:", error);
     return {
       isOdoo: false,
-      interfaceType: OdooInterface.UNKNOWN,
-      isPOS: false
+      interfaceType: 'unknown',
+      isPOS: false,
+      debugValue: '',
+      isDebugActive: false,
+      debugMode: 'normal'
     };
   }
 }

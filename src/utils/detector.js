@@ -1,361 +1,192 @@
 /**
  * Utilitaire centralisé pour la détection des pages Odoo
- * Évite la duplication de code entre le service worker et le popup
  * @author David B.
  */
 
 import { browserAPI } from "../core/browser.js";
-import { OdooInterface, isBackendUrl, isPosUrl, detectOdooPageDom } from "../core/odoo.js";
+import { OdooInterface, isBackendUrl, isPosUrl } from "../core/odoo.js";
+
+// Fonction d'injection DOM — définie inline pour éviter toute transformation webpack.
+// Doit être self-contained : pas de référence à des variables extérieures.
+function buildDetectFunc() {
+  return () => {
+    try {
+      // window.odoo global = JS Odoo chargé (présent sur toutes les pages Odoo)
+      const odoo = typeof window.odoo !== 'undefined' ? window.odoo : null;
+
+      // o_web_client = WebClient monté (backend ou site via barre admin)
+      const hasWebClient = document.body.classList.contains('o_web_client');
+
+      // État debug lu directement depuis Odoo (source autoritaire)
+      const debugValue = (odoo && odoo.debug) ? String(odoo.debug) : '';
+
+      // Détection POS
+      const hasPosClass = document.body.classList.contains('pos');
+      const urlLower = window.location.href.toLowerCase();
+      const hasPosInUrl = urlLower.includes('/pos/') || urlLower.includes('/pos/ui');
+      const hasPosElement = !!(
+        document.querySelector('.pos-content') ||
+        document.querySelector('#pos_root') ||
+        document.querySelector('.pos_root')
+      );
+      const isPOS = hasPosClass || hasPosInUrl || hasPosElement;
+
+      // Est-ce une page Odoo ?
+      const isOdoo = !!odoo || hasWebClient || isPOS;
+
+      // Type d'interface
+      let interfaceType = 'unknown';
+      if (isPOS) interfaceType = 'pos';
+      else if (hasWebClient) interfaceType = 'backend';
+      else if (isOdoo) interfaceType = 'website';
+
+      return {
+        isOdoo,
+        interfaceType,
+        isPOS,
+        debugValue,
+        isDebugActive: !!debugValue,
+        debugMode: debugValue === 'assets' ? 'assets' : 'normal'
+      };
+    } catch (e) {
+      return {
+        isOdoo: false,
+        interfaceType: 'unknown',
+        isPOS: false,
+        debugValue: '',
+        isDebugActive: false,
+        debugMode: 'normal'
+      };
+    }
+  };
+}
 
 /**
- * Vérifie si la page courante est une page Odoo en cherchant les marqueurs spécifiques dans le DOM
- * @param {number} tabId - Identifiant de l'onglet
- * @returns {Promise<{isOdoo: boolean, interfaceType: string, isPOS: boolean}>} - Résultat de détection
+ * Détecte si la page courante est une page Odoo (utilisé par le service worker)
  */
 export async function detectOdooPage(tabId) {
-  // Valeur par défaut en cas d'erreur ou si tabId n'est pas fourni
-  const defaultResult = { 
-    isOdoo: false, 
-    interfaceType: OdooInterface.UNKNOWN, 
-    isPOS: false 
-  };
-  
-  // Validation du paramètre
-  if (!tabId) {
-    return defaultResult;
-  }
-  
+  const defaultResult = { isOdoo: false, interfaceType: OdooInterface.UNKNOWN, isPOS: false };
+  if (!tabId) return defaultResult;
+
   try {
-    // Exécuter un script dans la page de l'onglet pour détecter Odoo
     const results = await browserAPI.scripting.executeScript({
       target: { tabId },
-      func: detectOdooPageDom,
-      // Ajout d'un timeout pour éviter les blocages (bien que cette option ne soit pas encore standard)
-      // Cette ligne peut être supprimée si elle cause des problèmes avec certaines versions de navigateurs
-      // timeout: 2000, 
+      func: buildDetectFunc()
     });
-    
-    // Vérifier si le résultat est valide
-    if (!results || !Array.isArray(results) || results.length === 0 || !results[0]?.result) {
-      console.warn("[Detector] No valid detection result for tab", tabId);
-      return defaultResult;
-    }
-    
-    // Retourner le résultat de la détection
-    return results[0].result;
+
+    if (!results?.[0]?.result) return defaultResult;
+    const { isOdoo, interfaceType, isPOS } = results[0].result;
+    return { isOdoo, interfaceType, isPOS };
   } catch (error) {
-    // Gérer les erreurs spécifiques
-    if (error?.message?.includes('Cannot access contents of url')) {
-      console.warn("[Detector] Cannot access contents of page (restricted access)", tabId);
-    } else if (error?.message?.includes('Manifest')) {
-      console.warn("[Detector] Extension manifest issue: ", error.message);
-    } else {
-      console.error("[Detector] Error detecting Odoo page:", error.message);
+    if (!error?.message?.includes('Cannot access')) {
+      console.error('[Detector] Error detecting Odoo page:', error.message);
     }
-    
-    // En cas d'erreur, supposer que ce n'est pas une page Odoo
     return defaultResult;
   }
 }
 
 /**
- * Détermine si une page est une page Odoo valide en fonction de multiples critères
- * @param {boolean} isOdooScript - Présence du script Odoo
- * @param {boolean} isPOS - Détection de Point of Sale par script/classe
- * @param {string} url - URL de la page
- * @returns {object} {isValid: boolean, shouldAutoEnable: boolean, isWebsite: boolean}
+ * Détermine si une page Odoo est valide et si le debug peut être auto-activé
+ * (utilisé par le service worker)
  */
 export function isValidOdooPage(isOdooScript, isPOS, url) {
-  // Résultat à retourner avec plusieurs indicateurs
-  const result = {
-    isValid: false,          // La page est-elle une page Odoo valide?
-    shouldAutoEnable: false, // Doit-on activer automatiquement le debug?
-    isWebsite: false         // Est-ce une page website?
-  };
-  
+  const result = { isValid: false, shouldAutoEnable: false, isWebsite: false };
+
   try {
-    // Analyser l'URL pour les vérifications basées sur le chemin
     const urlObj = new URL(url);
     const pathLower = urlObj.pathname.toLowerCase();
-    
-    // Détection spécifique POS - Prioritaire car très spécifique
-    const isPosUrlMatch = pathLower === '/pos' || 
+
+    const isPosUrlMatch = pathLower === '/pos' ||
                           pathLower.startsWith('/pos/') ||
-                          pathLower.includes('/pos/ui') ||
-                          pathLower.includes('/pos/web') ||
-                          (urlObj.searchParams.has('config_id') && pathLower.includes('/pos'));
-    
+                          urlObj.searchParams.has('config_id');
+
     if (isPosUrlMatch || isPOS) {
       result.isValid = true;
       result.shouldAutoEnable = true;
-      result.isWebsite = false;
       return result;
     }
-    
-    // Critère 1: Le script Odoo est présent
+
     if (isOdooScript) {
       result.isValid = true;
-      
-      // Vérifier si c'est une page website (script Odoo présent mais pas d'URL backend)
       if (!isBackendUrl(url)) {
         result.isWebsite = true;
       } else {
-        // Page backend, on permet l'activation automatique
         result.shouldAutoEnable = true;
       }
-      
       return result;
     }
-    
-    // Critère 3: Détection basée sur l'URL pour les environnements spécifiques (runbot, etc.)
-    // Si l'URL contient clairement "odoo" dans le chemin ou le domaine
-    if (urlObj.hostname.includes('odoo.com') || 
+
+    if (urlObj.hostname.includes('odoo.com') ||
         urlObj.hostname.includes('runbot') ||
         urlObj.hostname.includes('odoo.sh') ||
         pathLower.includes('/odoo') ||
         pathLower.includes('/web')) {
-      
       result.isValid = true;
-      
-      // Si l'URL contient des indices de website (pas de /web ou de /odoo)
-      if (pathLower === '/' || 
-          (pathLower !== '/web' && 
-           pathLower !== '/odoo' && 
-           !pathLower.startsWith('/web/') && 
-           !pathLower.startsWith('/odoo/'))) {
+      if (pathLower === '/' || (!pathLower.startsWith('/web/') && !pathLower.startsWith('/odoo/'))) {
         result.isWebsite = true;
       } else {
-        // Probablement un backend, activer le debug
         result.shouldAutoEnable = true;
       }
     }
-    
+
     return result;
   } catch (error) {
-    console.error('[Detector] Error analyzing URL in isValidOdooPage:', error.message);
-    
-    // Fallback si l'analyse d'URL échoue
-    // Critère 1: Le script Odoo est présent
-    if (isOdooScript) {
-      result.isValid = true;
-      // On ne peut pas déterminer si c'est un website sans l'URL
-      result.shouldAutoEnable = true;
-    }
-    
-    // Critère 2: C'est une page Point of Sale
-    if (isPOS) {
+    if (isOdooScript || isPOS) {
       result.isValid = true;
       result.shouldAutoEnable = true;
-      result.isWebsite = false;
     }
-    
     return result;
   }
 }
 
 /**
- * Vérifie si c'est une page ou une URL Odoo valide, et détermine son type
- * @param {string} url - URL de la page
- * @param {number} tabId - Identifiant de l'onglet
- * @returns {Promise<{isOdoo: boolean, isBackend: boolean, isWebsite: boolean, isPOS: boolean}>} - Résultat de détection
+ * Analyse complète du contexte Odoo pour le popup
+ * Source primaire : DOM (window.odoo + o_web_client)
  */
 export async function analyzeOdooContext(url, tabId) {
-  // Valeurs par défaut si aucune information n'est disponible
-  const defaultResult = { 
-    isOdoo: false, 
-    isBackend: false, 
-    isWebsite: false, 
-    isPOS: false 
+  const defaultResult = {
+    isOdoo: false,
+    isBackend: false,
+    isWebsite: false,
+    isPOS: false,
+    isDebugActive: false,
+    debugMode: 'normal'
   };
-  
-  // Validation des paramètres
-  if (!url || !tabId) {
-    console.log("[Detector] analyzeOdooContext - Missing parameters", { url, tabId });
-    return defaultResult;
-  }
-  
+
+  if (!url || !tabId) return defaultResult;
+
   try {
-    // Log URL pour debug
-    console.log("[Detector] analyzeOdooContext - Analyzing URL:", url);
-    
-    // Vérification spécifique pour les URLs POS
-    try {
-      const urlObj = new URL(url);
-      const isPosUrl = urlObj.pathname.includes('/pos/') || 
-                       urlObj.pathname === '/pos' || 
-                       urlObj.searchParams.has('config_id');
-      
-      // Si c'est une URL POS évidente, court-circuiter la détection
-      if (isPosUrl) {
-        console.log("[Detector] analyzeOdooContext - Detected POS URL directly:", url);
-        return {
-          isOdoo: true,
-          isBackend: true,
-          isWebsite: false,
-          isPOS: true
-        };
-      }
-    } catch (urlError) {
-      console.warn("[Detector] Error parsing URL in initial check:", urlError.message);
+    // Fast-path POS
+    const urlObj = new URL(url);
+    const path = urlObj.pathname.toLowerCase();
+    if (path === '/pos' || path.startsWith('/pos/')) {
+      return { isOdoo: true, isBackend: true, isWebsite: false, isPOS: true, isDebugActive: false, debugMode: 'normal' };
     }
-    
-    // Vérification préliminaire basée sur l'URL avant d'examiner le DOM
-    // Pour les URLs qui sont clairement des URLs Odoo
-    const isExplicitOdooUrl = isExplicitlyOdooUrl(url);
-    console.log("[Detector] analyzeOdooContext - isExplicitOdooUrl:", isExplicitOdooUrl);
-    
-    // Si l'URL est explicitement une URL Odoo, on peut déjà déterminer le type
-    if (isExplicitOdooUrl) {
-      const urlObj = new URL(url);
-      
-      // Déterminer si c'est un backend ou un website
-      const isBackendPath = urlObj.pathname === '/web' || 
-                           urlObj.pathname === '/odoo' || 
-                           urlObj.pathname.startsWith('/web/') || 
-                           urlObj.pathname.startsWith('/odoo/');
-      
-      // Vérification spécifique POS (prioritaire)
-      const isPosPath = urlObj.pathname === '/pos' || 
-                       urlObj.pathname.startsWith('/pos/') || 
-                       urlObj.searchParams.has('config_id');
-      
-      console.log("[Detector] URL-based detection:", { isBackendPath, isPosPath });
-      
-      if (isPosPath) {
-        // C'est une page POS
-        return {
-          isOdoo: true,
-          isBackend: true,
-          isWebsite: false,
-          isPOS: true
-        };
-      } else if (isBackendPath) {
-        // C'est un backend standard
-        return {
-          isOdoo: true,
-          isBackend: true,
-          isWebsite: false,
-          isPOS: urlObj.pathname.includes('/pos')
-        };
-      } else {
-        // Sinon, considérer comme website
-        return {
-          isOdoo: true,
-          isBackend: false,
-          isWebsite: true,
-          isPOS: false
-        };
-      }
-    }
-    
-    // Vérifier si c'est une page Odoo en examinant le DOM
-    const domDetection = await detectOdooPage(tabId);
-    const { isOdoo, interfaceType, isPOS } = domDetection;
-    
-    console.log("[Detector] DOM-based detection:", domDetection);
-    
-    // Traitement prioritaire pour les pages POS
-    if (isPOS) {
-      return {
-        isOdoo: true,
-        isBackend: true,
-        isWebsite: false,
-        isPOS: true
-      };
-    }
-    
-    // Si ce n'est pas une page Odoo selon le DOM, pas besoin d'aller plus loin
-    if (!isOdoo) {
-      return defaultResult;
-    }
-    
-    // Déterminer si c'est une page Odoo valide selon nos critères supplémentaires
-    const validityCheck = isValidOdooPage(isOdoo, isPOS, url);
-    const { isValid, shouldAutoEnable, isWebsite } = validityCheck;
-    
-    console.log("[Detector] Validity check:", validityCheck);
-    
-    // Si ce n'est pas une page Odoo valide, on s'arrête là
-    if (!isValid) {
-      return defaultResult;
-    }
-    
-    // Retourner le résultat complet pour une page Odoo valide
-    const result = {
+
+    // Détection principale via DOM (fonction inline = webpack-safe)
+    const results = await browserAPI.scripting.executeScript({
+      target: { tabId },
+      func: buildDetectFunc()
+    });
+
+    if (!results?.[0]?.result) return defaultResult;
+
+    const { isOdoo, interfaceType, isPOS, isDebugActive, debugMode } = results[0].result;
+
+    if (!isOdoo) return defaultResult;
+
+    return {
       isOdoo: true,
-      // Les interfaces "backend" et "pos" sont considérées comme des backends
-      isBackend: interfaceType === "backend" || interfaceType === "pos",
-      // L'interface "website" est considérée comme un site web
-      isWebsite: interfaceType === "website" || isWebsite,
-      // Spécifique au Point of Sale
-      isPOS: interfaceType === "pos" || isPOS
+      isBackend: interfaceType === 'backend' || interfaceType === 'pos',
+      isWebsite: interfaceType === 'website',
+      isPOS,
+      isDebugActive,
+      debugMode
     };
-    
-    console.log("[Detector] Final result:", result);
-    return result;
   } catch (error) {
-    console.error('[Detector] Error analyzing Odoo context:', error.message);
+    if (!error?.message?.includes('Cannot access')) {
+      console.error('[Detector] Error analyzing Odoo context:', error.message);
+    }
     return defaultResult;
   }
 }
-
-/**
- * Vérifie si une URL est explicitement une URL Odoo basée sur son domaine ou son chemin
- * @param {string} url - URL à vérifier
- * @returns {boolean} - True si c'est une URL explicitement Odoo
- */
-function isExplicitlyOdooUrl(url) {
-  try {
-    if (!url) return false;
-    
-    const urlObj = new URL(url);
-    
-    // Vérifier le domaine
-    if (urlObj.hostname.includes('odoo.com') || 
-        urlObj.hostname.includes('runbot') ||
-        urlObj.hostname.includes('odoo.sh')) {
-      return true;
-    }
-    
-    // Vérifier les chemins spécifiques à Odoo
-    const pathname = urlObj.pathname.toLowerCase();
-    
-    // Vérifier les chemins de base
-    if (pathname === '/odoo' || 
-        pathname.startsWith('/odoo/') ||
-        pathname === '/web' || 
-        pathname.startsWith('/web/')) {
-      return true;
-    }
-    
-    // Vérifier les chemins POS
-    if (pathname === '/pos' || 
-        pathname.startsWith('/pos/') ||
-        pathname.includes('/pos/ui') ||
-        pathname.includes('/pos/web')) {
-      return true;
-    }
-    
-    // Vérifier les paramètres d'URL spécifiques à Odoo
-    if (urlObj.searchParams.has('debug') ||
-        urlObj.searchParams.has('menu_id') ||
-        urlObj.searchParams.has('action') ||
-        urlObj.searchParams.has('model') ||
-        urlObj.searchParams.has('view_type') ||
-        urlObj.searchParams.has('config_id')) {  // Paramètre spécifique au POS
-      return true;
-    }
-    
-    // Vérifier les fragments d'URL spécifiques à Odoo
-    if (urlObj.hash.includes('cids=') || 
-        urlObj.hash.includes('action=') ||
-        urlObj.hash.includes('model=')) {
-      return true;
-    }
-    
-    return false;
-  } catch (error) {
-    console.error('[Detector] Error in isExplicitlyOdooUrl:', error.message);
-    return false;
-  }
-} 

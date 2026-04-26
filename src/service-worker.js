@@ -7,10 +7,10 @@
 import { browserAPI } from "./core/browser.js";
 import { getIconPath } from "./core/icon-utils.js";
 import { detectOdooPage, isValidOdooPage } from "./utils/detector.js";
-import { 
-  hasActiveDebugParameter, 
-  isDebugExplicitlyDisabled, 
-  getDebugStateFromURL 
+import {
+  isDebugExplicitlyDisabled,
+  getDebugStateFromURL,
+  handleDebugParameter
 } from "./utils/debug-utils.js";
 
 // Initialization checks
@@ -63,111 +63,47 @@ function updateIconDirectly(tabId, isDebugEnabled) {
 
 // Listen for tab updates
 browserAPI.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // Nous voulons traiter les mises à jour d'URL même partielles pour maintenir le mode debug
-  const shouldProcess = (changeInfo.status === 'complete' || changeInfo.url) && 
-                        tab?.url && tab.url.startsWith('http');
-  
-  if (!shouldProcess) return;
+  if (!tab?.url?.startsWith('http')) return;
 
   try {
-    // Vérifier si nous avons déjà un état stocké pour cet onglet
-    let previousState = debugStates.has(tabId) ? debugStates.get(tabId) : null;
-    
-    // Extraire l'état du debug directement depuis l'URL
+    // Fast path: URL already contains the debug state (SPA navigation or explicit parameter)
     const urlDebugState = getDebugStateFromURL(tab.url);
-    
-    // Variables pour stocker l'état final
-    let isDebugEnabled = false;
-    let debugMode = 'normal';
-    
-    // Si l'URL contient un paramètre debug explicite, l'utiliser
-    if (urlDebugState) {
-      isDebugEnabled = urlDebugState.enabled;
-      debugMode = urlDebugState.mode;
-    } 
-    // Si l'URL ne contient pas de paramètre debug et que nous avions un état précédent
-    else if (previousState) {
-      // On détecte si c'est une page Odoo
-      const { isOdoo, isPOS } = await detectOdooPage(tabId);
-      const { isValid, shouldAutoEnable } = isValidOdooPage(isOdoo, isPOS, tab.url);
-      
-      // Ne conserver l'état précédent que si c'est toujours une page Odoo valide
-      // et que l'URL ne contient pas de paramètre debug
-      if (isValid) {
-        // IMPORTANT: Si changement d'URL détecté et que l'état précédent avait le debug activé,
-        // vérifier si l'URL actuelle devrait avoir le debug activé
-        if (changeInfo.url && previousState.enabled) {
-          // Si la nouvelle URL ne contient pas de paramètre debug, on vérifie 
-          // si on doit activer automatiquement le debug sur cette page
-          isDebugEnabled = shouldAutoEnable;
-          debugMode = previousState.mode; // Conserver le mode précédent
-        } else {
-          // Pas de changement d'URL ou debug non activé précédemment
-          isDebugEnabled = previousState.enabled;
-          debugMode = previousState.mode;
-        }
-      } else {
-        // Si ce n'est plus une page Odoo valide, désactiver le debug
-        isDebugEnabled = false;
+    if (urlDebugState !== null) {
+      debugStates.set(tabId, { enabled: urlDebugState.enabled, mode: urlDebugState.mode });
+      updateIconDirectly(tabId, urlDebugState.enabled);
+      return;
+    }
+
+    // DOM detection: only safe after page is fully loaded
+    if (changeInfo.status !== 'complete') return;
+
+    const previousState = debugStates.get(tabId) || null;
+
+    const { isOdoo, isPOS } = await detectOdooPage(tabId);
+    const { isValid, shouldAutoEnable } = isValidOdooPage(isOdoo, isPOS, tab.url);
+
+    if (!isValid) {
+      debugStates.set(tabId, { enabled: false, mode: 'normal' });
+      updateIconDirectly(tabId, false);
+      return;
+    }
+
+    if (shouldAutoEnable && !isDebugExplicitlyDisabled(tab.url)) {
+      // Preserve previous mode if any, else default to normal
+      const mode = previousState?.mode || 'normal';
+      const newUrl = handleDebugParameter(tab.url, true, mode);
+      if (newUrl !== tab.url) {
+        debugStates.set(tabId, { enabled: true, mode });
+        browserAPI.tabs.update(tabId, { url: newUrl });
+        return;
       }
     }
-    // Si pas d'état précédent et pas de paramètre debug dans l'URL, déterminer l'état initial
-    else {
-      // Détecter si c'est une page Odoo et son type
-      const { isOdoo, isPOS } = await detectOdooPage(tabId);
-      
-      // Déterminer si c'est une page Odoo valide et si on doit activer automatiquement
-      const { isValid, shouldAutoEnable } = isValidOdooPage(isOdoo, isPOS, tab.url);
-      
-      // Si c'est une page Odoo valide, considérer l'auto-activation
-      if (isValid && shouldAutoEnable) {
-        isDebugEnabled = true;
-        debugMode = 'normal';
-      }
-    }
-    
-    // Mettre à jour le stockage local
-    debugStates.set(tabId, { enabled: isDebugEnabled, mode: debugMode });
-    
-    // Mettre à jour l'icône directement
-    updateIconDirectly(tabId, isDebugEnabled);
-    
-    // NOUVEAU: Si l'état a changé et que le debug est activé, mais que l'URL 
-    // ne contient pas de paramètre debug, mettre à jour l'URL
-    if (isDebugEnabled && !hasActiveDebugParameter(tab.url) && !isDebugExplicitlyDisabled(tab.url)) {
-      // Construire la nouvelle URL avec le paramètre debug
-      let newUrl = new URL(tab.url);
-      
-      // Supprimer tout paramètre debug existant
-      if (newUrl.searchParams.has('debug')) {
-        newUrl.searchParams.delete('debug');
-      }
-      
-      // Ajouter le nouveau paramètre debug
-      newUrl.searchParams.append('debug', debugMode === 'assets' ? 'assets' : '1');
-      
-      // Mettre à jour l'URL de l'onglet
-      browserAPI.tabs.update(tabId, { url: newUrl.toString() });
-    }
-    // Si le debug est désactivé mais que l'URL contient encore un paramètre debug actif,
-    // mettre à jour l'URL pour refléter l'état désactivé
-    else if (!isDebugEnabled && hasActiveDebugParameter(tab.url)) {
-      // Construire la nouvelle URL sans le paramètre debug
-      let newUrl = new URL(tab.url);
-      
-      // Remplacer le paramètre debug par debug=0
-      newUrl.searchParams.delete('debug');
-      newUrl.searchParams.append('debug', '0');
-      
-      // Mettre à jour l'URL de l'onglet
-      browserAPI.tabs.update(tabId, { url: newUrl.toString() });
-    }
+
+    debugStates.set(tabId, { enabled: false, mode: 'normal' });
+    updateIconDirectly(tabId, false);
   } catch (error) {
     console.error(`[ServiceWorker] Error handling tab update for ${tabId}:`, error.message);
-    // En cas d'erreur, garder l'état précédent si possible
-    if (!debugStates.has(tabId)) {
-      debugStates.set(tabId, { enabled: false, mode: 'normal' });
-    }
+    if (!debugStates.has(tabId)) debugStates.set(tabId, { enabled: false, mode: 'normal' });
   }
 });
 
@@ -235,40 +171,25 @@ browserAPI.runtime.onSuspend.addListener(() => {
   debugStates.clear();
 });
 
-// Également écouter les changements d'onglet actifs pour mettre à jour l'icône
+// Update icon when switching tabs
 browserAPI.tabs.onActivated.addListener(async (activeInfo) => {
   try {
     const tabId = activeInfo.tabId;
-    console.log(`[ServiceWorker] Tab activated: ${tabId}`);
-    
-    // Vérifier si nous avons un état stocké pour cet onglet
+
     if (debugStates.has(tabId)) {
-      const state = debugStates.get(tabId);
-      console.log(`[ServiceWorker] Found stored state for tab ${tabId}:`, state);
-      
-      // Mettre à jour l'icône pour refléter l'état de cet onglet
-      updateIconDirectly(tabId, state.enabled);
+      updateIconDirectly(tabId, debugStates.get(tabId).enabled);
+      return;
+    }
+
+    const tab = await browserAPI.tabs.get(tabId);
+    if (!tab?.url) return;
+
+    const urlDebugState = getDebugStateFromURL(tab.url);
+    if (urlDebugState !== null) {
+      debugStates.set(tabId, { enabled: urlDebugState.enabled, mode: urlDebugState.mode });
+      updateIconDirectly(tabId, urlDebugState.enabled);
     } else {
-      // Si nous n'avons pas d'état stocké, essayer de déterminer l'état à partir de l'URL
-      try {
-        const tab = await browserAPI.tabs.get(tabId);
-        if (tab && tab.url) {
-          const urlDebugState = getDebugStateFromURL(tab.url);
-          if (urlDebugState) {
-            // Stocker et refléter l'état
-            debugStates.set(tabId, { 
-              enabled: urlDebugState.enabled, 
-              mode: urlDebugState.mode 
-            });
-            updateIconDirectly(tabId, urlDebugState.enabled);
-          } else {
-            // Pas d'état dans l'URL, définir l'icône par défaut (désactivée)
-            updateIconDirectly(tabId, false);
-          }
-        }
-      } catch (tabError) {
-        console.error(`[ServiceWorker] Error getting tab ${tabId}:`, tabError.message);
-      }
+      updateIconDirectly(tabId, false);
     }
   } catch (error) {
     console.error(`[ServiceWorker] Error handling tab activation:`, error.message);

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Odoo Inspector",
+  "name": "Odebug",
   "version": "1.0.0",
-  "description": "A helper for Odoo developers with debug mode management and useful tools",
+  "description": "Odoo debug mode manager for developers",
   "author": "David B.",
   "permissions": [
     "tabs",
@@ -20,7 +20,7 @@
       "48": "img/icons/icon48.png",
       "128": "img/icons/icon128.png"
     },
-    "default_title": "Odoo Inspector"
+    "default_title": "Odebug"
   },
   "background": {
     "service_worker": "service-worker.js"
