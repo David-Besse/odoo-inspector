@@ -107,11 +107,8 @@ function setupEventListeners(tabId) {
     modeToggle.addEventListener('change', async function () {
       const isAssets = this.checked;
       updateModeLabels(isAssets);
-
-      if (document.body.classList.contains('debug-active')) {
-        await updateTabURL(tabId, true, isAssets);
-        await updateDebugState(tabId, true, isAssets ? 'assets' : 'normal');
-      }
+      await updateTabURL(tabId, true, isAssets);
+      await updateDebugState(tabId, true, isAssets ? 'assets' : 'normal');
     });
   }
 }

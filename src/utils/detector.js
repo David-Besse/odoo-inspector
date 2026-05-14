@@ -5,6 +5,7 @@
 
 import { browserAPI } from "../core/browser.js";
 import { OdooInterface, isBackendUrl, isPosUrl } from "../core/odoo.js";
+import { getDebugStateFromURL } from "./debug-utils.js";
 
 // Fonction d'injection DOM — définie inline pour éviter toute transformation webpack.
 // Doit être self-contained : pas de référence à des variables extérieures.
@@ -171,9 +172,16 @@ export async function analyzeOdooContext(url, tabId) {
 
     if (!results?.[0]?.result) return defaultResult;
 
-    const { isOdoo, interfaceType, isPOS, isDebugActive, debugMode } = results[0].result;
+    const { isOdoo, interfaceType, isPOS, isDebugActive: domIsDebugActive, debugMode: domDebugMode } = results[0].result;
 
     if (!isOdoo) return defaultResult;
+
+    // L'URL est la source autoritaire pour le mode debug (fiable sur toutes les versions Odoo)
+    const urlDebugState = getDebugStateFromURL(url);
+    const isDebugActive = domIsDebugActive || (urlDebugState?.enabled ?? false);
+    const debugMode = urlDebugState?.mode === 'assets' ? 'assets'
+                    : domDebugMode === 'assets' ? 'assets'
+                    : 'normal';
 
     return {
       isOdoo: true,

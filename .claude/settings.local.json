@@ -22,7 +22,14 @@
       "PowerShell(Get-Command claude -ErrorAction SilentlyContinue)",
       "PowerShell(Get-ChildItem \"$env:USERPROFILE\" -Recurse -Filter \"claude.exe\" -ErrorAction SilentlyContinue -Depth 5 | Select-Object FullName)",
       "Skill(update-config)",
-      "Skill(update-config:*)"
+      "Skill(update-config:*)",
+      "Bash(Test-Path \"C:\\\\Users\\\\dahod\\\\.vscode\\\\extensions\\\\anthropic.claude-code-2.1.141-win32-x64\\\\resources\\\\native-binary\\\\claude.exe\")",
+      "Bash(which git *)",
+      "Read(//c/Program Files/Git/bin/**)",
+      "Read(//c/Users/dahod/.vscode/extensions//**)",
+      "Bash(xargs grep -l -i \"claude commit\")",
+      "Bash(which claude *)",
+      "Read(//c/Users/dahod/**)"
     ]
   }
 }
