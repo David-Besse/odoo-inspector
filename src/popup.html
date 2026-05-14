@@ -89,67 +89,47 @@
       opacity: 0;
     }
 
-    /* Sélecteur de mode Debug / Assets */
+    /* Sélecteur de mode Off / Debug / Assets */
     .mode-selector {
       display: none;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
       padding: 6px 0;
       opacity: 0;
       animation: instantAppear 0.15s cubic-bezier(0.19, 1, 0.22, 1) 0.12s forwards;
     }
 
-    .mode-label {
-      font-size: 12px;
+    .segment-control {
+      display: flex;
+      background: #efefef;
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .segment {
+      flex: 1;
+      padding: 5px 0;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      font-size: 11px;
       font-weight: 500;
-      color: #aaa;
-      transition: color 0.15s;
+      color: #888;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
       user-select: none;
     }
 
-    .mode-label.active {
-      color: var(--primary-color);
+    .segment:hover:not(.active) {
+      background: rgba(0, 0, 0, 0.06);
+      color: #555;
+    }
+
+    .segment.active {
+      background: var(--primary-color);
+      color: white;
       font-weight: 600;
-    }
-
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 32px;
-      height: 18px;
-      cursor: pointer;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background-color: var(--primary-color);
-      transition: .15s;
-      border-radius: 18px;
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 14px;
-      width: 14px;
-      left: 2px;
-      bottom: 2px;
-      background-color: white;
-      transition: .15s;
-      border-radius: 50%;
-    }
-
-    input:checked + .slider:before {
-      transform: translateX(14px);
     }
 
     /* Messages d'information */
@@ -215,12 +195,11 @@
   </div>
 
   <div class="mode-selector" id="mode-selector">
-    <span class="mode-label active" id="label-debug">Debug</span>
-    <label class="switch">
-      <input type="checkbox" id="mode-toggle">
-      <span class="slider"></span>
-    </label>
-    <span class="mode-label" id="label-assets">Assets</span>
+    <div class="segment-control">
+      <button class="segment" id="btn-off">Off</button>
+      <button class="segment" id="btn-debug">Debug</button>
+      <button class="segment" id="btn-assets">Assets</button>
+    </div>
   </div>
 
   <script type="module" src="popup.js"></script>

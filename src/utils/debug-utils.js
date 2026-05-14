@@ -96,10 +96,7 @@ export function handleDebugParameter(url, enable, mode = 'normal') {
     
     // Gestion commune : ajouter ou supprimer le paramètre de debug dans les paramètres de requête
     const handleQueryParams = () => {
-      // Supprimer d'abord tout paramètre debug existant
       urlObj.searchParams.delete(DebugParameter.NAME);
-      
-      // Ajouter le paramètre si nécessaire
       if (enable) {
         urlObj.searchParams.set(DebugParameter.NAME, debugValue);
       }

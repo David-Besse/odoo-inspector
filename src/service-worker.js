@@ -26,9 +26,7 @@ if (chromeVersion && parseInt(chromeVersion) < 88) {
   throw new Error("Unsupported Chrome version");
 }
 
-// Stockage local pour le service worker
-// Stocke pour chaque onglet: {enabled: boolean, mode: string ('normal' ou 'assets')}
-const debugStates = new Map(); // {tabId: {enabled: boolean, mode: string}}
+const debugStates = new Map(); // {tabId: {enabled: boolean, mode: string, userDisabled: boolean}}
 
 /**
  * Met à jour l'icône directement depuis le service worker
@@ -69,7 +67,11 @@ browserAPI.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
     // Fast path: URL already contains the debug state (SPA navigation or explicit parameter)
     const urlDebugState = getDebugStateFromURL(tab.url);
     if (urlDebugState !== null) {
-      debugStates.set(tabId, { enabled: urlDebugState.enabled, mode: urlDebugState.mode });
+      debugStates.set(tabId, {
+        enabled: urlDebugState.enabled,
+        mode: urlDebugState.mode,
+        userDisabled: !urlDebugState.enabled
+      });
       updateIconDirectly(tabId, urlDebugState.enabled);
       return;
     }
@@ -79,31 +81,35 @@ browserAPI.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
     const previousState = debugStates.get(tabId) || null;
 
+    if (previousState?.userDisabled) {
+      updateIconDirectly(tabId, false);
+      return;
+    }
+
     const { isOdoo, isPOS } = await detectOdooPage(tabId);
     const { isValid, shouldAutoEnable } = isValidOdooPage(isOdoo, isPOS, tab.url);
 
     if (!isValid) {
-      debugStates.set(tabId, { enabled: false, mode: 'normal' });
+      debugStates.set(tabId, { enabled: false, mode: 'normal', userDisabled: false });
       updateIconDirectly(tabId, false);
       return;
     }
 
     if (shouldAutoEnable && !isDebugExplicitlyDisabled(tab.url)) {
-      // Preserve previous mode if any, else default to normal
       const mode = previousState?.mode || 'normal';
       const newUrl = handleDebugParameter(tab.url, true, mode);
       if (newUrl !== tab.url) {
-        debugStates.set(tabId, { enabled: true, mode });
+        debugStates.set(tabId, { enabled: true, mode, userDisabled: false });
         browserAPI.tabs.update(tabId, { url: newUrl });
         return;
       }
     }
 
-    debugStates.set(tabId, { enabled: false, mode: 'normal' });
+    debugStates.set(tabId, { enabled: false, mode: 'normal', userDisabled: false });
     updateIconDirectly(tabId, false);
   } catch (error) {
     console.error(`[ServiceWorker] Error handling tab update for ${tabId}:`, error.message);
-    if (!debugStates.has(tabId)) debugStates.set(tabId, { enabled: false, mode: 'normal' });
+    if (!debugStates.has(tabId)) debugStates.set(tabId, { enabled: false, mode: 'normal', userDisabled: false });
   }
 });
 
@@ -122,14 +128,13 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ error: "Missing tabId parameter" });
           return true;
         }
-        
-        // Mettre à jour l'état dans notre Map
-        debugStates.set(tabId, { 
-          enabled: !!state, 
-          mode: mode || 'normal' 
+
+        debugStates.set(tabId, {
+          enabled: !!state,
+          mode: mode || 'normal',
+          userDisabled: !state
         });
         
-        // Mettre à jour l'icône directement
         updateIconDirectly(tabId, !!state);
         
         sendResponse({ success: true });
@@ -143,8 +148,7 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
           return true;
         }
         
-        // Récupérer l'état stocké dans notre Map
-        const debugState = debugStates.has(tabId) 
+        const debugState = debugStates.has(tabId)
           ? debugStates.get(tabId) 
           : { enabled: false, mode: 'normal' };
           

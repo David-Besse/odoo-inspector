@@ -12,16 +12,17 @@ function setIconActive(isActive) {
   document.body.classList.toggle('debug-active', isActive);
 }
 
-function updateModeLabels(isAssets) {
-  document.getElementById('label-debug')?.classList.toggle('active', !isAssets);
-  document.getElementById('label-assets')?.classList.toggle('active', isAssets);
+function setActiveSegment(mode) {
+  ['off', 'debug', 'assets'].forEach(m => {
+    document.getElementById(`btn-${m}`)?.classList.toggle('active', m === mode);
+  });
+  setIconActive(mode !== 'off');
 }
 
 function updateInterface(data) {
   const { isOdoo, isBackend, isWebsite, isPOS, debug, debugAssets } = data;
 
   const modeSelector = document.getElementById('mode-selector');
-  const modeToggle = document.getElementById('mode-toggle');
   const disabledInfo = document.querySelector('.disabled-info');
   const websiteInfo = document.querySelector('.website-info');
 
@@ -50,16 +51,10 @@ function updateInterface(data) {
     document.body.classList.add('backend');
     if (isPOS) document.body.classList.add('pos');
 
-    modeSelector.style.display = 'flex';
+    modeSelector.style.display = 'block';
 
-    const isActive = debug || debugAssets;
-    const isAssets = !!debugAssets;
-
-    setIconActive(isActive);
-    if (modeToggle) {
-      modeToggle.checked = isAssets;
-      updateModeLabels(isAssets);
-    }
+    const mode = debugAssets ? 'assets' : debug ? 'debug' : 'off';
+    setActiveSegment(mode);
     return;
   }
 
@@ -101,16 +96,16 @@ async function updateDebugState(tabId, isEnabled, mode) {
 }
 
 function setupEventListeners(tabId) {
-  const modeToggle = document.getElementById('mode-toggle');
-
-  if (modeToggle) {
-    modeToggle.addEventListener('change', async function () {
-      const isAssets = this.checked;
-      updateModeLabels(isAssets);
-      await updateTabURL(tabId, true, isAssets);
-      await updateDebugState(tabId, true, isAssets ? 'assets' : 'normal');
+  ['off', 'debug', 'assets'].forEach(mode => {
+    document.getElementById(`btn-${mode}`)?.addEventListener('click', async () => {
+      const isEnabled = mode !== 'off';
+      const withAssets = mode === 'assets';
+      setActiveSegment(mode);
+      // SW doit connaître le choix avant que la navigation se déclenche
+      await updateDebugState(tabId, isEnabled, withAssets ? 'assets' : 'normal');
+      await updateTabURL(tabId, isEnabled, withAssets);
     });
-  }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', async function () {
