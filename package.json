@@ -9,6 +9,7 @@
     "build:webpack": "webpack",
     "watch": "webpack --watch",
     "dev": "npm-run-all clean watch",
+    "generate": "bash scripts/generate-crx.sh",
     "package": "bash scripts/package-zip.sh",
     "package:zip-only": "node scripts/package-zip.js",
     "generate:crx": "bash scripts/generate-crx.sh",

@@ -5,7 +5,24 @@
       "Bash(npm install *)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebSearch",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(npm --version)",
+      "Bash(command -v nvm)",
+      "Bash(nvm --version)",
+      "Bash(curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh)",
+      "Bash(bash)",
+      "Bash(identify d:/Code/odoo-inspector/src/img/Sudokeys.webp)",
+      "Bash(curl -L \"https://www.sudokeys.com/web/image/website/1/logo/Sudokeys?unique=2ca0e39\" -o /tmp/sudokeys_logo --write-out \"%{content_type} %{size_download}\")",
+      "Read(//tmp/**)",
+      "Bash(identify /tmp/sudokeys_logo)",
+      "Bash(curl -L \"https://www.sudokeys.com/web/image/website/1/logo/Sudokeys?unique=2ca0e39\" -o /tmp/sudokeys_new)",
+      "Bash(identify /tmp/sudokeys_new)",
+      "WebFetch(domain:marketplace.visualstudio.com)",
+      "Bash(where claude *)",
+      "PowerShell(Get-Command claude -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-ChildItem \"$env:USERPROFILE\" -Recurse -Filter \"claude.exe\" -ErrorAction SilentlyContinue -Depth 5 | Select-Object FullName)",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }

@@ -3,6 +3,10 @@
 # Script pour générer un fichier CRX pour l'extension Odoo Inspector
 # Ce script construit l'extension puis crée un véritable fichier CRX
 
+# Charger nvm si disponible
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
 # Couleurs pour les messages
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -17,8 +21,6 @@ if [ $? -ne 0 ]; then
   echo -e "${RED}❌ Échec de la construction. Abandon de la génération CRX.${NC}"
   exit 1
 fi
-
-echo -e "${YELLOW}📦 Génération du fichier CRX...${NC}"
 
 # Vérifier et installer crx si nécessaire
 if ! npm list --depth=0 | grep -q 'crx@'; then
