@@ -101,9 +101,9 @@ function setupEventListeners(tabId) {
       const isEnabled = mode !== 'off';
       const withAssets = mode === 'assets';
       setActiveSegment(mode);
-      // SW doit connaître le choix avant que la navigation se déclenche
       await updateDebugState(tabId, isEnabled, withAssets ? 'assets' : 'normal');
       await updateTabURL(tabId, isEnabled, withAssets);
+      window.close();
     });
   });
 }
