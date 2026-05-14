@@ -40,3 +40,6 @@ Thumbs.db
 
 # Fichiers de clé privée
 private-key.pem
+
+# claude
+.claude/
