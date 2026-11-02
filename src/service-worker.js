@@ -1,201 +1,32 @@
 /**
- * Service Worker principal pour l'extension Odoo Inspector
- * Gère l'état global et les événements du navigateur
+ * Service worker : active automatiquement le debug sur le backend et le POS Odoo,
+ * et tient l'icône à jour.
  * @author David B.
  */
 
-import { browserAPI } from "./core/browser.js";
-import { getIconPath } from "./core/icon-utils.js";
-import { detectOdooPage, isValidOdooPage } from "./utils/detector.js";
-import {
-  isDebugExplicitlyDisabled,
-  getDebugStateFromURL,
-  handleDebugParameter
-} from "./utils/debug-utils.js";
+import { getDebugMode, inspectTab, isOdooAppPath, setDebugIcon, withDebug } from './odoo.js';
 
-// Initialization checks
-if (!browserAPI?.action || !browserAPI?.tabs || !browserAPI?.scripting) {
-  console.error("[ServiceWorker] Required browser APIs are not available");
-  throw new Error("Browser APIs not available");
-}
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status !== 'complete' || !tab.url?.startsWith('http')) return;
 
-// Check Chrome version
-const chromeVersion = navigator.userAgent.match(/Chrome\/(\d+)/)?.[1];
-if (chromeVersion && parseInt(chromeVersion) < 88) {
-  console.error("[ServiceWorker] Chrome version 88 or higher is required");
-  throw new Error("Unsupported Chrome version");
-}
+  const url = new URL(tab.url);
+  // On n'injecte de script que sur les chemins de l'application Odoo, jamais sur les autres sites
+  if (!isOdooAppPath(url.pathname)) return;
 
-const debugStates = new Map(); // {tabId: {enabled: boolean, mode: string, userDisabled: boolean}}
+  const page = await inspectTab(tabId);
+  if (!page?.isOdoo) return;
 
-/**
- * Met à jour l'icône directement depuis le service worker
- * @param {number} tabId - Identifiant de l'onglet
- * @param {boolean} isDebugEnabled - Indique si le mode debug est activé
- */
-function updateIconDirectly(tabId, isDebugEnabled) {
-  try {
-    if (!tabId) {
-      console.warn("[ServiceWorker] TabId is required to update icon directly");
-      return;
-    }
-    
-    console.log(`[ServiceWorker] Updating icon for tab ${tabId}, debug ${isDebugEnabled ? 'enabled' : 'disabled'}`);
-    const iconPath = getIconPath(isDebugEnabled);
-
-    if (browserAPI?.action?.setIcon) {
-      browserAPI.action.setIcon({ 
-        tabId: tabId,
-        path: iconPath 
-      });
-    } else if (browserAPI?.browserAction?.setIcon) {
-      browserAPI.browserAction.setIcon({ 
-        tabId: tabId,
-        path: iconPath 
-      });
-    }
-  } catch (error) {
-    console.error(`[ServiceWorker] Error updating icon for tab ${tabId}:`, error.message);
+  const urlDebug = url.searchParams.get('debug');
+  if (getDebugMode(page.debug || urlDebug) !== 'off') {
+    setDebugIcon(tabId, true);
+    return;
   }
-}
 
-// Listen for tab updates
-browserAPI.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (!tab?.url?.startsWith('http')) return;
+  // Paramètre debug déjà présent (debug=0) ou debug coupé par l'utilisateur sur ce domaine :
+  // on n'y touche pas. Le choix est gardé jusqu'à la fermeture du navigateur.
+  if (urlDebug !== null) return;
+  const { [url.origin]: choice } = await chrome.storage.session.get(url.origin);
+  if (choice === '0') return;
 
-  try {
-    // Fast path: URL already contains the debug state (SPA navigation or explicit parameter)
-    const urlDebugState = getDebugStateFromURL(tab.url);
-    if (urlDebugState !== null) {
-      debugStates.set(tabId, {
-        enabled: urlDebugState.enabled,
-        mode: urlDebugState.mode,
-        userDisabled: !urlDebugState.enabled
-      });
-      updateIconDirectly(tabId, urlDebugState.enabled);
-      return;
-    }
-
-    // DOM detection: only safe after page is fully loaded
-    if (changeInfo.status !== 'complete') return;
-
-    const previousState = debugStates.get(tabId) || null;
-
-    if (previousState?.userDisabled) {
-      updateIconDirectly(tabId, false);
-      return;
-    }
-
-    const { isOdoo, isPOS } = await detectOdooPage(tabId);
-    const { isValid, shouldAutoEnable } = isValidOdooPage(isOdoo, isPOS, tab.url);
-
-    if (!isValid) {
-      debugStates.set(tabId, { enabled: false, mode: 'normal', userDisabled: false });
-      updateIconDirectly(tabId, false);
-      return;
-    }
-
-    if (shouldAutoEnable && !isDebugExplicitlyDisabled(tab.url)) {
-      const mode = previousState?.mode || 'normal';
-      const newUrl = handleDebugParameter(tab.url, true, mode);
-      if (newUrl !== tab.url) {
-        debugStates.set(tabId, { enabled: true, mode, userDisabled: false });
-        browserAPI.tabs.update(tabId, { url: newUrl });
-        return;
-      }
-    }
-
-    debugStates.set(tabId, { enabled: false, mode: 'normal', userDisabled: false });
-    updateIconDirectly(tabId, false);
-  } catch (error) {
-    console.error(`[ServiceWorker] Error handling tab update for ${tabId}:`, error.message);
-    if (!debugStates.has(tabId)) debugStates.set(tabId, { enabled: false, mode: 'normal', userDisabled: false });
-  }
-});
-
-// Écouter les messages du popup
-browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  try {
-    if (!message || !message.type) {
-      sendResponse({ error: "Invalid message format" });
-      return true;
-    }
-
-    switch (message.type) {
-      case 'SET_DEBUG_STATE': {
-        const { tabId, state, mode = 'normal' } = message;
-        if (tabId === undefined) {
-          sendResponse({ error: "Missing tabId parameter" });
-          return true;
-        }
-
-        debugStates.set(tabId, {
-          enabled: !!state,
-          mode: mode || 'normal',
-          userDisabled: !state
-        });
-        
-        updateIconDirectly(tabId, !!state);
-        
-        sendResponse({ success: true });
-        break;
-      }
-      
-      case 'GET_DEBUG_STATE': {
-        const { tabId } = message;
-        if (tabId === undefined) {
-          sendResponse({ error: "Missing tabId parameter" });
-          return true;
-        }
-        
-        const debugState = debugStates.has(tabId)
-          ? debugStates.get(tabId) 
-          : { enabled: false, mode: 'normal' };
-          
-        sendResponse({ 
-          state: debugState.enabled,
-          mode: debugState.mode 
-        });
-        break;
-      }
-      
-      default:
-        sendResponse({ error: `Unknown message type: ${message.type}` });
-    }
-  } catch (error) {
-    console.error(`[ServiceWorker] Error processing message:`, error.message);
-    sendResponse({ error: error.message });
-  }
-  
-  return true; // Indique que la réponse sera envoyée de façon asynchrone
-});
-
-// Nettoyer les états lorsque l'extension est désactivée
-browserAPI.runtime.onSuspend.addListener(() => {
-  debugStates.clear();
-});
-
-// Update icon when switching tabs
-browserAPI.tabs.onActivated.addListener(async (activeInfo) => {
-  try {
-    const tabId = activeInfo.tabId;
-
-    if (debugStates.has(tabId)) {
-      updateIconDirectly(tabId, debugStates.get(tabId).enabled);
-      return;
-    }
-
-    const tab = await browserAPI.tabs.get(tabId);
-    if (!tab?.url) return;
-
-    const urlDebugState = getDebugStateFromURL(tab.url);
-    if (urlDebugState !== null) {
-      debugStates.set(tabId, { enabled: urlDebugState.enabled, mode: urlDebugState.mode });
-      updateIconDirectly(tabId, urlDebugState.enabled);
-    } else {
-      updateIconDirectly(tabId, false);
-    }
-  } catch (error) {
-    console.error(`[ServiceWorker] Error handling tab activation:`, error.message);
-  }
+  chrome.tabs.update(tabId, { url: withDebug(tab.url, choice || '1') });
 });

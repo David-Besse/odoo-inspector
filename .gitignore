@@ -35,8 +35,9 @@ Thumbs.db
 .env.production.local
 
 # Fichiers de package
+packages/
 *.tgz
-*.zip 
+*.zip
 
 # Fichiers de clé privée
 private-key.pem

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
   <meta charset="UTF-8">
   <style>
@@ -180,29 +180,29 @@
       <span class="title">O<span style="color: #4bb04f;">Debug</span></span>
       <div class="powered-by">
         <span class="powered-by-text">Powered by</span>
-        <a href="https://www.sudokeys.com" target="_blank" class="sudokeys-logo">
+        <a href="https://www.sudokeys.com" target="_blank" rel="noopener" class="sudokeys-logo">
           <img src="/img/Sudokeys.webp?v=3" alt="Sudokeys" style="image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges;">
         </a>
       </div>
     </div>
   </div>
 
-  <div class="disabled-info" style="display: none;">
+  <div class="disabled-info">
     Odoo non détecté
   </div>
 
-  <div class="website-info" style="display: none;">
+  <div class="website-info">
     <span class="icon">ℹ️</span> Le mode debug ne peut être activé que sur les pages du backoffice.
   </div>
 
-  <div class="mode-selector" id="mode-selector">
+  <div class="mode-selector">
     <div class="segment-control">
-      <button class="segment" id="btn-off">Off</button>
-      <button class="segment" id="btn-debug">Debug</button>
-      <button class="segment" id="btn-assets">Assets</button>
+      <button class="segment" data-mode="off" data-value="0">Off</button>
+      <button class="segment" data-mode="debug" data-value="1">Debug</button>
+      <button class="segment" data-mode="assets" data-value="assets">Assets</button>
     </div>
   </div>
 
-  <script type="module" src="popup.js"></script>
+  <script src="popup.js"></script>
 </body>
 </html>

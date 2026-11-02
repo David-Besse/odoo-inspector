@@ -1,13 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Odebug",
-  "version": "1.0.0",
   "description": "Odoo debug mode manager for developers",
   "author": "David B.",
+  "minimum_chrome_version": "102",
   "permissions": [
-    "tabs",
     "scripting",
-    "activeTab",
     "storage"
   ],
   "host_permissions": [
@@ -16,9 +14,9 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "img/icons/icon16.png",
-      "48": "img/icons/icon48.png",
-      "128": "img/icons/icon128.png"
+      "16": "img/icons/icon16_gray.png",
+      "48": "img/icons/icon48_gray.png",
+      "128": "img/icons/icon128_gray.png"
     },
     "default_title": "Odebug"
   },
@@ -29,11 +27,5 @@
     "16": "img/icons/icon16.png",
     "48": "img/icons/icon48.png",
     "128": "img/icons/icon128.png"
-  },
-  "web_accessible_resources": [{
-    "resources": [
-      "img/icons/*.png"
-    ],
-    "matches": ["<all_urls>"]
-  }]
-} 
+  }
+}
